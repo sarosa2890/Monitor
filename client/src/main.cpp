@@ -31,10 +31,52 @@
 
 #include <windows.h>
 #include <shellapi.h>
+#include <fcntl.h>
+#include <io.h>
 
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
+
+// Фоновый режим: GUI-подсистема без окна консоли; логи идут в файл foxmon.log
+// рядом с exe, конфиг ищется там же (не зависит от рабочей папки).
+#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+
+// Каталог, где лежит exe (UTF-8).
+static std::string exeDir() {
+    wchar_t buf[MAX_PATH];
+    if (!GetModuleFileNameW(nullptr, buf, MAX_PATH)) return "";
+    wchar_t* slash = wcsrchr(buf, L'\\');
+    if (slash) *slash = 0;
+    int n = WideCharToMultiByte(CP_UTF8, 0, buf, -1, nullptr, 0, nullptr, nullptr);
+    std::string dir(n ? n - 1 : 0, '\0');
+    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, buf, -1, &dir[0], n, nullptr, nullptr);
+    return dir;
+}
+
+// Весь stdout/stderr уходит в foxmon.log (append), без буферизации.
+// _dup2: перебрасываем дескрипторы 1/2 на файл — работает и в GUI-режиме,
+// где консоли нет вовсе. Файл открыт с _SH_DENYNO (можно читать на лету).
+static void openLog(const std::string& dir) {
+    std::string path = dir + "\\foxmon.log";
+    int fd = -1;
+    _sopen_s(&fd, path.c_str(), _O_CREAT | _O_APPEND | _O_WRONLY | _O_TEXT,
+             _SH_DENYNO, _S_IREAD | _S_IWRITE);
+    if (fd < 0) return;
+    _dup2(fd, 1);
+    _dup2(fd, 2);
+    if (fd > 2) _close(fd);
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+}
+
+// Один процесс на сессию: второй запуск (автозапуск + ручной) выходит сразу.
+static bool alreadyRunning() {
+    HANDLE h = CreateMutexA(nullptr, FALSE, "Local\\FoxMonitor_Client_SingleInstance");
+    if (!h) return false;
+    if (GetLastError() == ERROR_ALREADY_EXISTS) { CloseHandle(h); return true; }
+    return false;
+}
 
 // Поднятие прав: большинство функций вкладки «Прочее» (PnP-устройства,
 // HKLM-политики) требуют администратора. Если запущены без прав — просим UAC.
@@ -498,19 +540,24 @@ static void cameraLoop() {
 // ------------------------------------------------------------ main ------
 int main() {
     srand((unsigned)time(nullptr));
-    SetConsoleOutputCP(65001);
+    std::string dir = exeDir();
+    loadConfig(g_cfg, dir + "\\config.ini");
+    if (g_cfg.log) openLog(dir);   // тихо по умолчанию; логи — только по log=1
+    if (alreadyRunning()) return 0;
 
     // Функции «Прочее» требуют прав администратора — перезапускаемся через UAC.
     if (!isElevated()) {
         wchar_t exe[MAX_PATH];
         if (GetModuleFileNameW(nullptr, exe, MAX_PATH)) {
-            printf("[net] not elevated, requesting UAC...\n"); fflush(stdout);
-            ShellExecuteW(nullptr, L"runas", exe, L"", nullptr, SW_SHOWNORMAL);
+            printf("[net] not elevated, requesting UAC...\n");
+            wchar_t wdir[MAX_PATH];
+            if (MultiByteToWideChar(CP_UTF8, 0, dir.c_str(), -1, wdir, MAX_PATH) == 0)
+                wcsncpy_s(wdir, L".", _TRUNCATE);
+            ShellExecuteW(nullptr, L"runas", exe, L"", wdir, SW_HIDE);
         }
         return 0;
     }
 
-    loadConfig(g_cfg, "config.ini");
     if (g_cfg.tls && g_cfg.port == 8080) g_cfg.port = 443; // wss по умолчанию 443
 
     WSADATA wsa{};

@@ -41,6 +41,7 @@ bool loadConfig(Config& cfg, const std::string& path) {
         else if (key == "capture_screen")        cfg.capture_screen = toBool(val);
         else if (key == "capture_camera")        cfg.capture_camera = toBool(val);
         else if (key == "location")              cfg.location = val;
+        else if (key == "log")                   cfg.log = toBool(val);
     }
     return true;
 }

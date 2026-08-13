@@ -9,6 +9,7 @@ Run:  pip install -r requirements.txt
 """
 import asyncio
 import base64
+import io
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ import struct
 import sys
 import time
 import urllib.parse
+import zipfile
 from collections import deque
 from pathlib import Path
 
@@ -56,11 +58,11 @@ def load_config():
         cfg.update(file_cfg)
     # Переменные окружения (Railway) имеют приоритет над config.json.
     if os.environ.get("CLIENT_KEY"):
-        cfg["client_key"] = os.environ["CLIENT_KEY"]
+        CFG["client_key"] = os.environ["CLIENT_KEY"]
     admin_user = os.environ.get("ADMIN_USER")
     admin_pass = os.environ.get("ADMIN_PASS")
     if admin_user or admin_pass:
-        users = dict(cfg.get("users", {}))
+        users = dict(CFG.get("users", {}))
         if admin_user:
             users[admin_user] = admin_pass or users.get(admin_user, "")
         elif admin_pass:
@@ -362,6 +364,40 @@ async def api_me(user=Depends(auth_user)):
 async def api_health():
     """Healthcheck для Railway: без авторизации, отдаёт статус и число клиентов."""
     return {"ok": True, "clients": len(clients)}
+
+
+@app.get("/api/client/download")
+async def api_client_download(request: Request):
+    """Скачать клиент: zip с FoxMonitor.exe и готовым config.ini (host = этот сервер).
+    Без авторизации — чтобы ссылку можно было дать на любую машину."""
+    exe_path = STATIC_DIR / "client" / "FoxMonitor.exe"
+    if not exe_path.exists():
+        raise HTTPException(404, "client binary not built (static/client/FoxMonitor.exe missing)")
+    host = request.headers.get("host", CFG.get("host", "localhost"))
+    ckey = CFG["client_key"]
+    cfg_ini = (
+        f"host = {host}\n"
+        f"tls = 1\n"
+        f"client_id = pc1\n"
+        f"client_key = {ckey}\n"
+        f"screen_fps = 10\n"
+        f"camera_fps = 5\n"
+        f"jpeg_quality = 75\n"
+        f"capture_screen = true\n"
+        f"capture_camera = false\n"
+        f"log = 0\n"
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("config.ini", cfg_ini)
+        z.write(exe_path, "FoxMonitor.exe")
+    data = buf.getvalue()
+    buf.close()
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="foxmon_client.zip"'},
+    )
 
 
 @app.post("/api/clients/{cid}/command")
