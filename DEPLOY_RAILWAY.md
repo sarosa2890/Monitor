@@ -6,10 +6,10 @@ Railway — правильный выбор: постоянный контейн
 ## Что уже сделано в репозитории
 
 - `server/Dockerfile` — образ: python 3.12, uvicorn, healthcheck.
-- `server/.dockerignore` — не тащим кэш/конфиги/данные в образ.
+- `.dockerignore` — не тащим кэш/конфиги/данные в образ.
 - `server/server.py` — читает `PORT`, `HOST`, `CLIENT_KEY`, `ADMIN_USER`, `ADMIN_PASS` из env.
 - `server/server.py` — добавлен `GET /health` (healthcheck Railway).
-- `railway.json` — builder `DOCKERFILE`, `rootDirectory: server` (контекст сборки),
+- `railway.json` — builder `DOCKERFILE`, `dockerfilePath: server/Dockerfile` (относительно корня репо),
   healthcheck + restart policy.
 - `client/src/wsclient.*` — поддержка wss:// (TLS 1.2/1.3 через Schannel).
 - `client/config.ini` — флаг `tls = 1` (wss, порт 443 автоматически).
