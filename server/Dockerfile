@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
 COPY static ./static
-COPY data ./data
+RUN mkdir -p /app/data
 
 ENV PORT=8080
 ENV HOST=0.0.0.0

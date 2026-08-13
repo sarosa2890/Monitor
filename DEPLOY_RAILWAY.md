@@ -9,7 +9,8 @@ Railway — правильный выбор: постоянный контейн
 - `server/.dockerignore` — не тащим кэш/конфиги/данные в образ.
 - `server/server.py` — читает `PORT`, `HOST`, `CLIENT_KEY`, `ADMIN_USER`, `ADMIN_PASS` из env.
 - `server/server.py` — добавлен `GET /health` (healthcheck Railway).
-- `railway.json` — DOCKERFILE builder + healthcheck + restart policy.
+- `railway.json` — builder `DOCKERFILE`, `rootDirectory: server` (контекст сборки),
+  healthcheck + restart policy.
 - `client/src/wsclient.*` — поддержка wss:// (TLS 1.2/1.3 через Schannel).
 - `client/config.ini` — флаг `tls = 1` (wss, порт 443 автоматически).
 
