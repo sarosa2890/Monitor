@@ -1,0 +1,27 @@
+# build artifacts
+client/x64/
+client/FoxMonitor/x64/
+client/*.obj
+*.obj
+
+# бинарники клиента
+client/run/FoxMonitor.exe
+
+# python
+__pycache__/
+*.pyc
+
+# runtime data (записи, скриншоты, логи) — не в git
+server/data/
+
+# локальные конфиги с паролями
+server/config.json
+
+# temp
+Temp/
+*.bin
+pre_err.txt
+ui_frame_test.jpg
+
+# IDE
+.vs/
